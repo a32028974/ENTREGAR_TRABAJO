@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Entrega • Óptica Cristal</title>
+<link rel="icon" href="logo.png" />
+<style>
+  :root { --bg:#0b1220; --card:#121a2b; --text:#e8eefc; --muted:#9fb0d6; --accent:#7cc0ff; }
+  *{box-sizing:border-box} body{margin:0; font:16px/1.4 system-ui,Segoe UI,Roboto,Arial,sans-serif; background:var(--bg); color:var(--text);}
+  .wrap{max-width:520px;margin:24px auto;padding:16px}
+  .card{background:var(--card);border:1px solid #1e2a42;border-radius:14px;padding:16px;box-shadow:0 6px 22px rgba(0,0,0,.25)}
+  h1{margin:0 0 12px 0;font-size:20px}
+  label{display:block;font-size:13px;color:var(--muted);margin:12px 0 6px}
+  input,select,button{width:100%;padding:12px 14px;border-radius:10px;border:1px solid #2a3b5f;background:#0e1626;color:var(--text)}
+  input::placeholder{color:#6e82ad}
+  button{background:var(--accent); color:#05223a; font-weight:700; border:none; cursor:pointer}
+  button:disabled{opacity:.6;cursor:not-allowed}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .ok{color:#8fffb3;margin-top:8px}
+  .err{color:#ff9c9c;margin-top:8px}
+  .muted{color:var(--muted)}
+  .hidden{display:none}
+  .pill{display:inline-block;background:#0f223a;border:1px solid #294a78;color:#b8d5ff;border-radius:999px;padding:6px 10px;margin-top:6px}
+  .hr{height:1px;background:#203152;margin:14px 0}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h1>Registrar entrega / pago</h1>
+
+      <label for="numero">Número (Columna D)</label>
+      <input id="numero" type="text" inputmode="numeric" placeholder="Escribí el número y presioná Enter">
+      <div id="status" class="muted"></div>
+
+      <div id="resultado" class="hidden">
+        <div class="hr"></div>
+        <div class="muted">Paciente</div>
+        <div id="paciente" class="pill"></div>
+
+        <div class="hr"></div>
+
+        <label for="entregadoPor">¿Quién entregó? (AI)</label>
+        <input id="entregadoPor" type="text" placeholder="Nombre del vendedor/a que entregó">
+
+        <div class="row">
+          <div>
+            <label for="cancelo">¿Cuánto canceló? (AJ)</label>
+            <input id="cancelo" type="number" step="0.01" placeholder="0.00">
+          </div>
+          <div>
+            <label for="fdm">Medio de pago (AK)</label>
+            <select id="fdm">
+              <option value="">Elegí una opción…</option>
+              <option>EFECTIVO</option>
+              <option>TARJETA</option>
+              <option>TRANSFERENCIA</option>
+              <option>MERCADO PAGO</option>
+              <option>OTRO</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="hr"></div>
+        <button id="guardarBtn" disabled>Guardar</button>
+        <div id="saveMsg" class="ok hidden">✔ Guardado</div>
+        <div id="saveErr" class="err hidden"></div>
+      </div>
+    </div>
+  </div>
+
+<script>
+  // === CONFIGURÁ TU URL DEL APP SCRIPT ===
+  const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbx4hZcduoVqvCqsCkrMaWIY-NT8xUU-kB4VJ3HNxBX7mtds0UjFSp6zQqQDBgKKAmiE1w/exec';
+
+  const $ = (id)=>document.getElementById(id);
+  const numeroInput = $('numero');
+  const status = $('status');
+  const resultado = $('resultado');
+  const paciente = $('paciente');
+  const entregadoPor = $('entregadoPor');
+  const cancelo = $('cancelo');
+  const fdm = $('fdm');
+  const guardarBtn = $('guardarBtn');
+  const saveMsg = $('saveMsg');
+  const saveErr = $('saveErr');
+
+  let currentNumero = null;
+
+  function withParams(base, params){
+    const u = new URL(base);
+    Object.entries(params).forEach(([k,v]) => u.searchParams.set(k, v));
+    return u.toString();
+  }
+
+  async function lookup(numero){
+    status.textContent = 'Buscando…';
+    resultado.classList.add('hidden');
+    saveMsg.classList.add('hidden');
+    saveErr.classList.add('hidden');
+    guardarBtn.disabled = true;
+
+    try{
+      const url = withParams(SCRIPT_URL, { action:'lookup', numero });
+      const res = await fetch(url, { method:'GET' });
+      const data = await res.json();
+
+      if (!data.ok){
+        status.textContent = '';
+        throw new Error(data.error || 'No encontrado');
+      }
+      currentNumero = numero;
+      paciente.textContent = (data.nombre || '(sin nombre)').toString();
+      status.textContent = `Encontrado N° ${numero}`;
+      resultado.classList.remove('hidden');
+      guardarBtn.disabled = false;
+      entregadoPor.focus();
+    }catch(e){
+      status.textContent = '';
+      resultado.classList.add('hidden');
+      alert(e.message || 'Error buscando');
+    }
+  }
+
+  async function save(){
+    saveMsg.classList.add('hidden');
+    saveErr.classList.add('hidden');
+
+    const ep  = (entregadoPor.value||'').trim();
+    const aj  = (cancelo.value||'').trim();
+    const ak  = (fdm.value||'').trim();
+
+    if (!currentNumero){ 
+      saveErr.textContent = 'Primero buscá un número válido.'; 
+      saveErr.classList.remove('hidden');
+      return;
+    }
+    if (!ep){
+      saveErr.textContent = 'Completá "Quién entregó".';
+      saveErr.classList.remove('hidden');
+      entregadoPor.focus();
+      return;
+    }
+    if (!ak){
+      saveErr.textContent = 'Elegí el medio de pago.';
+      saveErr.classList.remove('hidden');
+      fdm.focus();
+      return;
+    }
+
+    guardarBtn.disabled = true;
+    guardarBtn.textContent = 'Guardando…';
+
+    try{
+      const url = withParams(SCRIPT_URL, {
+        action:'save',
+        numero: currentNumero,
+        entregadoPor: ep,
+        cancelo: aj,
+        fdm: ak
+      });
+      const res = await fetch(url, { method:'GET' });
+      const data = await res.json();
+
+      if (!data.ok){
+        throw new Error(data.error || 'No se pudo guardar');
+      }
+      saveErr.classList.add('hidden');
+      saveMsg.classList.remove('hidden');
+      guardarBtn.textContent = 'Guardar';
+      guardarBtn.disabled = false;
+      // Opcional: limpiar campos de pago
+      // cancelo.value = ''; fdm.value = '';
+    }catch(e){
+      saveErr.textContent = e.message || 'Error guardando';
+      saveErr.classList.remove('hidden');
+      guardarBtn.textContent = 'Guardar';
+      guardarBtn.disabled = false;
+    }
+  }
+
+  numeroInput.addEventListener('keydown', (ev)=>{
+    if (ev.key === 'Enter'){
+      const val = (numeroInput.value||'').trim();
+      if (val) lookup(val);
+    }
+  });
+  $('guardarBtn').addEventListener('click', save);
+</script>
+</body>
+</html>
