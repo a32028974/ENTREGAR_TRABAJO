@@ -30,7 +30,7 @@
     <div class="card">
       <h1>Registrar entrega / pago</h1>
 
-      <label for="numero">Número (Columna D)</label>
+      <label for="numero">Número de trabajo</label>
       <input id="numero" type="text" inputmode="numeric" placeholder="Escribí el número y presioná Enter">
       <div id="status" class="muted"></div>
 
@@ -41,25 +41,34 @@
 
         <div class="hr"></div>
 
-        <label for="entregadoPor">¿Quién entregó? (AI)</label>
+        <label for="entregadoPor">¿Quien Entregó?</label>
         <input id="entregadoPor" type="text" placeholder="Nombre del vendedor/a que entregó">
 
         <div class="row">
           <div>
-            <label for="cancelo">¿Cuánto canceló? (AJ)</label>
+            <label for="cancelo">¿Cuánto pagó?</label>
             <input id="cancelo" type="number" step="0.01" placeholder="0.00">
           </div>
           <div>
-            <label for="fdm">Medio de pago (AK)</label>
+            <label for="fdm">¿Cómo pagó?</label>
             <select id="fdm">
               <option value="">Elegí una opción…</option>
               <option>EFECTIVO</option>
-              <option>TARJETA</option>
+              <option>TARJETA 1P</option>
+              <option>TARJETA 3P</option>
+              <option>TARJETA 6P</option>
+              <option>TARJETA 12P</option>
               <option>TRANSFERENCIA</option>
               <option>MERCADO PAGO</option>
               <option>OTRO</option>
             </select>
           </div>
+        </div>
+
+        <!-- Campo libre SOLO si elige OTRO -->
+        <div id="wrapFdmOtro" class="hidden">
+          <label for="fdmOtro">Especificá el medio de pago</label>
+          <input id="fdmOtro" type="text" placeholder="Ej: CHEQUE, VALE, PROMO X, etc.">
         </div>
 
         <div class="hr"></div>
@@ -71,8 +80,8 @@
   </div>
 
 <script>
-  // === CONFIGURÁ TU URL DEL APP SCRIPT ===
-  const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbx4hZcduoVqvCqsCkrMaWIY-NT8xUU-kB4VJ3HNxBX7mtds0UjFSp6zQqQDBgKKAmiE1w/exec';
+  // === TU URL DE APP SCRIPT ===
+  const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbx2oao4ZVckDweyVZJ1u9rlH72xS4d8UEIR72qxG5fQOuSM4ooLWL9a17lTVD93AzloaQ/exec';
 
   const $ = (id)=>document.getElementById(id);
   const numeroInput = $('numero');
@@ -82,6 +91,8 @@
   const entregadoPor = $('entregadoPor');
   const cancelo = $('cancelo');
   const fdm = $('fdm');
+  const fdmOtroWrap = $('wrapFdmOtro');
+  const fdmOtro = $('fdmOtro');
   const guardarBtn = $('guardarBtn');
   const saveMsg = $('saveMsg');
   const saveErr = $('saveErr');
@@ -93,6 +104,17 @@
     Object.entries(params).forEach(([k,v]) => u.searchParams.set(k, v));
     return u.toString();
   }
+
+  // Mostrar/ocultar campo libre según selección
+  fdm.addEventListener('change', ()=>{
+    if (fdm.value === 'OTRO'){
+      fdmOtroWrap.classList.remove('hidden');
+      fdmOtro.focus();
+    } else {
+      fdmOtroWrap.classList.add('hidden');
+      fdmOtro.value = '';
+    }
+  });
 
   async function lookup(numero){
     status.textContent = 'Buscando…';
@@ -130,6 +152,7 @@
     const ep  = (entregadoPor.value||'').trim();
     const aj  = (cancelo.value||'').trim();
     const ak  = (fdm.value||'').trim();
+    const akOtro = (fdmOtro.value||'').trim();
 
     if (!currentNumero){ 
       saveErr.textContent = 'Primero buscá un número válido.'; 
@@ -148,6 +171,12 @@
       fdm.focus();
       return;
     }
+    if (ak === 'OTRO' && !akOtro){
+      saveErr.textContent = 'Especificá el medio de pago en "OTRO".';
+      saveErr.classList.remove('hidden');
+      fdmOtro.focus();
+      return;
+    }
 
     guardarBtn.disabled = true;
     guardarBtn.textContent = 'Guardando…';
@@ -158,7 +187,8 @@
         numero: currentNumero,
         entregadoPor: ep,
         cancelo: aj,
-        fdm: ak
+        fdm: ak,           // select
+        fdmOtro: akOtro    // texto libre si corresponde
       });
       const res = await fetch(url, { method:'GET' });
       const data = await res.json();
@@ -170,8 +200,10 @@
       saveMsg.classList.remove('hidden');
       guardarBtn.textContent = 'Guardar';
       guardarBtn.disabled = false;
-      // Opcional: limpiar campos de pago
-      // cancelo.value = ''; fdm.value = '';
+
+      // Opcional: limpiar solo los campos de pago
+      // cancelo.value = ''; fdm.value = ''; fdmOtro.value = ''; fdmOtroWrap.classList.add('hidden');
+
     }catch(e){
       saveErr.textContent = e.message || 'Error guardando';
       saveErr.classList.remove('hidden');
