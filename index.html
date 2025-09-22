@@ -7,7 +7,8 @@
 <link rel="icon" href="logo.png" />
 <style>
   :root { --bg:#0b1220; --card:#121a2b; --text:#e8eefc; --muted:#9fb0d6; --accent:#7cc0ff; }
-  *{box-sizing:border-box} body{margin:0; font:16px/1.4 system-ui,Segoe UI,Roboto,Arial,sans-serif; background:var(--bg); color:var(--text);}
+  *{box-sizing:border-box}
+  body{margin:0; font:16px/1.4 system-ui,Segoe UI,Roboto,Arial,sans-serif; background:var(--bg); color:var(--text);}
   .wrap{max-width:520px;margin:24px auto;padding:16px}
   .card{background:var(--card);border:1px solid #1e2a42;border-radius:14px;padding:16px;box-shadow:0 6px 22px rgba(0,0,0,.25)}
   h1{margin:0 0 12px 0;font-size:20px}
@@ -23,6 +24,25 @@
   .hidden{display:none}
   .pill{display:inline-block;background:#0f223a;border:1px solid #294a78;color:#b8d5ff;border-radius:999px;padding:6px 10px;margin-top:6px}
   .hr{height:1px;background:#203152;margin:14px 0}
+
+  /* === Lista de coincidencias === */
+  .table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 14px;
+           background:#0e1626; border:1px solid #2a3b5f; border-radius: 10px; overflow: hidden; }
+  .table th, .table td { padding: 8px 10px; border-bottom: 1px solid #22324f; text-align: left; white-space: nowrap; }
+  .table tr:last-child td { border-bottom: 0; }
+  .table th { color:#b8d5ff; font-weight:600; background:#0f1a2c; }
+  .table tr { cursor: pointer; }
+  .table tr:hover { background:#0f223a; }
+  .table .num { font-weight:700; color:#9fd1ff; }
+  .badge { display:inline-block; padding:2px 8px; border-radius:999px; font-size:12px;
+           border:1px solid #294a78; color:#b8d5ff; background:#0f223a; }
+
+  /* Pequeño spinner para "Buscando…" */
+  .spinner { display:inline-block; width:14px; height:14px; border:2px solid #6e82ad; border-top-color:transparent; border-radius:50%; vertical-align:-2px; animation:spin 1s linear infinite; margin-right:6px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Accesibilidad foco tabla */
+  .table tr:focus { outline:2px solid #7cc0ff; outline-offset:-2px; }
 </style>
 </head>
 <body>
@@ -31,8 +51,17 @@
       <h1>Registrar entrega / pago</h1>
 
       <label for="numero">Número de trabajo</label>
-      <input id="numero" type="text" inputmode="numeric" placeholder="Escribí el número y presioná Enter">
-      <div id="status" class="muted"></div>
+      <input id="numero" type="text" inputmode="numeric" placeholder="Escribí el número y presioná Enter" autocomplete="off" />
+      <div id="status" class="muted" aria-live="polite"></div>
+
+      <!-- Lista de coincidencias múltiples -->
+      <div id="listaWrap" class="hidden">
+        <div class="hr"></div>
+        <div class="muted">Coincidencias encontradas (elegí una)</div>
+        <div class="tableWrap" style="overflow:auto; max-height:260px; border-radius:10px; margin-top:6px;">
+          <table class="table" id="lista"></table>
+        </div>
+      </div>
 
       <div id="resultado" class="hidden">
         <div class="hr"></div>
@@ -41,13 +70,13 @@
 
         <div class="hr"></div>
 
-        <label for="entregadoPor">¿Quien Entregó?</label>
-        <input id="entregadoPor" type="text" placeholder="Nombre del vendedor/a que entregó">
+        <label for="entregadoPor">¿Quién entregó?</label>
+        <input id="entregadoPor" type="text" placeholder="Nombre del vendedor/a que entregó" autocomplete="off" />
 
         <div class="row">
           <div>
             <label for="cancelo">¿Cuánto pagó?</label>
-            <input id="cancelo" type="number" step="0.01" placeholder="0.00">
+            <input id="cancelo" type="number" step="0.01" placeholder="0.00" inputmode="decimal" />
           </div>
           <div>
             <label for="fdm">¿Cómo pagó?</label>
@@ -68,7 +97,7 @@
         <!-- Campo libre SOLO si elige OTRO -->
         <div id="wrapFdmOtro" class="hidden">
           <label for="fdmOtro">Especificá el medio de pago</label>
-          <input id="fdmOtro" type="text" placeholder="Ej: CHEQUE, VALE, PROMO X, etc.">
+          <input id="fdmOtro" type="text" placeholder="Ej: CHEQUE, VALE, PROMO X, etc." autocomplete="off" />
         </div>
 
         <div class="hr"></div>
@@ -86,6 +115,8 @@
   const $ = (id)=>document.getElementById(id);
   const numeroInput = $('numero');
   const status = $('status');
+  const listaWrap = $('listaWrap');
+  const listaTable = $('lista');
   const resultado = $('resultado');
   const paciente = $('paciente');
   const entregadoPor = $('entregadoPor');
@@ -116,35 +147,128 @@
     }
   });
 
+  // Helpers
+  function normStr(v){ return (v==null ? '' : String(v)).trim(); }
+  function setStatusLoading(msg='Buscando…'){
+    status.innerHTML = '<span class="spinner" aria-hidden="true"></span>' + msg;
+  }
+  function clearStatus(){ status.textContent = ''; }
+
+  // ---- Render de candidatos cuando hay múltiples resultados ----
+  function renderLista(items){
+    listaTable.innerHTML = '';
+    const thead = document.createElement('thead');
+    thead.innerHTML = `
+      <tr>
+        <th>N°</th>
+        <th>Paciente</th>
+        <th>DNI</th>
+        <th>Tel.</th>
+        <th>Estado</th>
+        <th>Retira</th>
+      </tr>`;
+    const tbody = document.createElement('tbody');
+
+    items.forEach(it=>{
+      const tr = document.createElement('tr');
+      tr.tabIndex = 0; // Navegable con teclado
+      tr.innerHTML = `
+        <td class="num">${normStr(it.numero || it.nro || it.num)}</td>
+        <td>${normStr(it.nombre || it.paciente)}</td>
+        <td>${normStr(it.dni)}</td>
+        <td>${normStr(it.telefono || it.tel)}</td>
+        <td>${normStr(it.estado) ? `<span class="badge">${it.estado}</span>`:''}</td>
+        <td>${normStr(it.retira || it.fechaRetira || it.retiro)}</td>
+      `;
+      tr.addEventListener('click', ()=> chooseItem(it));
+      tr.addEventListener('keydown', (ev)=>{ if(ev.key==='Enter') chooseItem(it); });
+      tbody.appendChild(tr);
+    });
+
+    listaTable.appendChild(thead);
+    listaTable.appendChild(tbody);
+    listaWrap.classList.remove('hidden');
+  }
+
+  function hideLista(){
+    listaWrap.classList.add('hidden');
+    listaTable.innerHTML = '';
+  }
+
+  // ---- Al elegir un item de la lista, completa y pasa a la vista final ----
+  function chooseItem(item){
+    const numero = item.numero || item.nro || item.num;
+    currentNumero = numero;
+    paciente.textContent = normStr(item.nombre || item.paciente) || '(sin nombre)';
+    status.textContent  = `Elegido N° ${numero}`;
+    hideLista();
+    resultado.classList.remove('hidden');
+    guardarBtn.disabled = false;
+    entregadoPor.focus();
+  }
+
+  // ---- Lookup principal ----
   async function lookup(numero){
-    status.textContent = 'Buscando…';
+    setStatusLoading();
+    hideLista();
     resultado.classList.add('hidden');
     saveMsg.classList.add('hidden');
     saveErr.classList.add('hidden');
     guardarBtn.disabled = true;
+    currentNumero = null;
 
     try{
       const url = withParams(SCRIPT_URL, { action:'lookup', numero });
       const res = await fetch(url, { method:'GET' });
+      if (!res.ok) throw new Error('Error de red');
       const data = await res.json();
 
+      // Formatos admitidos:
+      // a) { ok:true, items:[...] }
+      // b) { ok:true, results:[...] }
+      // c) { ok:true, ...campos de un único item... }
+      // d) [...] (array directo)
+      if (Array.isArray(data)) {
+        if (data.length === 0) throw new Error('No encontrado');
+        if (data.length === 1) { chooseItem(data[0]); }
+        else {
+          status.textContent = `Se encontraron ${data.length} coincidencias`;
+          renderLista(data);
+        }
+        return;
+      }
+
       if (!data.ok){
-        status.textContent = '';
+        clearStatus();
         throw new Error(data.error || 'No encontrado');
       }
-      currentNumero = numero;
-      paciente.textContent = (data.nombre || '(sin nombre)').toString();
-      status.textContent = `Encontrado N° ${numero}`;
-      resultado.classList.remove('hidden');
-      guardarBtn.disabled = false;
-      entregadoPor.focus();
+
+      const list = data.items || data.results;
+      if (Array.isArray(list)) {
+        if (list.length === 0) throw new Error('No encontrado');
+        if (list.length === 1) { chooseItem(list[0]); }
+        else {
+          status.textContent = `Se encontraron ${list.length} coincidencias`;
+          renderLista(list);
+        }
+      } else {
+        // Un único registro plano
+        currentNumero = numero;
+        paciente.textContent = normStr(data.nombre || data.paciente) || '(sin nombre)';
+        status.textContent = `Encontrado N° ${numero}`;
+        resultado.classList.remove('hidden');
+        guardarBtn.disabled = false;
+        entregadoPor.focus();
+      }
     }catch(e){
-      status.textContent = '';
+      clearStatus();
       resultado.classList.add('hidden');
+      hideLista();
       alert(e.message || 'Error buscando');
     }
   }
 
+  // ---- Guardar ----
   async function save(){
     saveMsg.classList.add('hidden');
     saveErr.classList.add('hidden');
@@ -155,7 +279,7 @@
     const akOtro = (fdmOtro.value||'').trim();
 
     if (!currentNumero){ 
-      saveErr.textContent = 'Primero buscá un número válido.'; 
+      saveErr.textContent = 'Primero buscá y elegí un número válido.'; 
       saveErr.classList.remove('hidden');
       return;
     }
@@ -179,6 +303,7 @@
     }
 
     guardarBtn.disabled = true;
+    const oldTxt = guardarBtn.textContent;
     guardarBtn.textContent = 'Guardando…';
 
     try{
@@ -187,10 +312,11 @@
         numero: currentNumero,
         entregadoPor: ep,
         cancelo: aj,
-        fdm: ak,           // select
-        fdmOtro: akOtro    // texto libre si corresponde
+        fdm: ak,
+        fdmOtro: akOtro
       });
       const res = await fetch(url, { method:'GET' });
+      if (!res.ok) throw new Error('Error de red');
       const data = await res.json();
 
       if (!data.ok){
@@ -198,20 +324,17 @@
       }
       saveErr.classList.add('hidden');
       saveMsg.classList.remove('hidden');
-      guardarBtn.textContent = 'Guardar';
+      guardarBtn.textContent = oldTxt;
       guardarBtn.disabled = false;
-
-      // Opcional: limpiar solo los campos de pago
-      // cancelo.value = ''; fdm.value = ''; fdmOtro.value = ''; fdmOtroWrap.classList.add('hidden');
-
     }catch(e){
       saveErr.textContent = e.message || 'Error guardando';
       saveErr.classList.remove('hidden');
-      guardarBtn.textContent = 'Guardar';
+      guardarBtn.textContent = oldTxt;
       guardarBtn.disabled = false;
     }
   }
 
+  // ---- Eventos ----
   numeroInput.addEventListener('keydown', (ev)=>{
     if (ev.key === 'Enter'){
       const val = (numeroInput.value||'').trim();
