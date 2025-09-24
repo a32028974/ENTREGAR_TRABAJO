@@ -25,6 +25,7 @@
   .pill{display:inline-block;background:#0f223a;border:1px solid #294a78;color:#b8d5ff;border-radius:999px;padding:6px 10px;margin-top:6px}
   .hr{height:1px;background:#203152;margin:14px 0}
 
+  /* === Lista de coincidencias === */
   .table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 14px;
            background:#0e1626; border:1px solid #2a3b5f; border-radius: 10px; overflow: hidden; }
   .table th, .table td { padding: 8px 10px; border-bottom: 1px solid #22324f; text-align: left; white-space: nowrap; }
@@ -36,18 +37,27 @@
   .badge { display:inline-block; padding:2px 8px; border-radius:999px; font-size:12px;
            border:1px solid #294a78; color:#b8d5ff; background:#0f223a; }
 
+  /* Spinner “Buscando…” */
   .spinner { display:inline-block; width:14px; height:14px; border:2px solid #6e82ad; border-top-color:transparent; border-radius:50%; vertical-align:-2px; animation:spin 1s linear infinite; margin-right:6px; }
   @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Accesibilidad foco tabla */
   .table tr:focus { outline:2px solid #7cc0ff; outline-offset:-2px; }
 
-  /* Scanner */
+  /* ======== SCANNER (modal) ======== */
   .input-row { display:grid; grid-template-columns: 1fr auto; gap:10px; align-items:end; }
   .scanBtn { padding:12px 14px; border-radius:10px; border:1px solid #2a3b5f; background:#113052; color:#b8d5ff; font-weight:700; }
   .scanBtn:hover { background:#14365d; }
 
-  .modal { position: fixed; inset: 0; background: rgba(0,0,0,.6); display: none; align-items: center; justify-content: center; padding: 16px; z-index: 9999; }
+  .modal {
+    position: fixed; inset: 0; background: rgba(0,0,0,.6);
+    display: none; align-items: center; justify-content: center; padding: 16px; z-index: 9999;
+  }
   .modal.show { display:flex; }
-  .modal-card { width: min(520px, 96vw); background: var(--card); border:1px solid #1e2a42; border-radius: 14px; padding: 12px; box-shadow: 0 12px 32px rgba(0,0,0,.45); }
+  .modal-card {
+    width: min(520px, 96vw); background: var(--card); border:1px solid #1e2a42;
+    border-radius: 14px; padding: 12px; box-shadow: 0 12px 32px rgba(0,0,0,.45);
+  }
   .modal-header { display:flex; align-items:center; justify-content:space-between; gap:8px; }
   .modal-title { font-weight:700; font-size:16px; }
   .modal-actions { display:flex; gap:8px; }
@@ -55,9 +65,14 @@
   .btn.primary { background: var(--accent); color:#05223a; border:none; font-weight:700; }
   .btn[disabled]{ opacity:.6; cursor:not-allowed; }
 
-  .videoWrap { position: relative; margin-top:10px; border-radius:12px; overflow:hidden; border:1px solid #22324f; background:#000; }
+  .videoWrap {
+    position: relative; margin-top:10px; border-radius:12px; overflow:hidden;
+    border:1px solid #22324f; background:#000;
+  }
   video { width:100%; height:auto; display:block; }
-  .reticle { position:absolute; inset:10%; border:2px dashed rgba(255,255,255,.35); border-radius:12px; pointer-events:none; }
+  .reticle {
+    position:absolute; inset:10%; border:2px dashed rgba(255,255,255,.35); border-radius:12px; pointer-events:none;
+  }
   .torchHint { margin-top:8px; font-size:12px; color:#9fb0d6; }
   .supportWarn { margin-top:8px; font-size:13px; color:#ffcc99; }
 </style>
@@ -74,6 +89,7 @@
       </div>
       <div id="status" class="muted" aria-live="polite"></div>
 
+      <!-- Lista de coincidencias múltiples -->
       <div id="listaWrap" class="hidden">
         <div class="hr"></div>
         <div class="muted">Coincidencias encontradas (elegí una)</div>
@@ -113,6 +129,7 @@
           </div>
         </div>
 
+        <!-- Campo libre SOLO si elige OTRO -->
         <div id="wrapFdmOtro" class="hidden">
           <label for="fdmOtro">Especificá el medio de pago</label>
           <input id="fdmOtro" type="text" placeholder="Ej: CHEQUE, VALE, PROMO X, etc." autocomplete="off" />
@@ -126,28 +143,25 @@
     </div>
   </div>
 
-  <!-- MODAL SCANNER -->
+  <!-- ==== MODAL SCANNER ==== -->
   <div id="scannerModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="scanTitle">
     <div class="modal-card">
       <div class="modal-header">
-        <div id="scanTitle" class="modal-title">Escanear código de barras</div>
+        <div id="scanTitle" class="modal-title">Escanear código de barras / QR</div>
         <div class="modal-actions">
           <button id="torchBtn" class="btn" type="button" disabled>Linterna</button>
           <button id="closeScan" class="btn" type="button">Cancelar</button>
         </div>
       </div>
-      <div id="supportWarn" class="supportWarn hidden">Tu navegador no soporta lector nativo. Probá con Chrome en Android o seguimos con el lector alternativo.</div>
+      <div id="supportWarn" class="supportWarn hidden">Tu navegador no soporta lectura nativa de códigos (BarcodeDetector). Probá con Chrome en Android.</div>
       <div class="videoWrap">
-        <video id="video" autoplay playsinline muted></video>
+        <video id="video" playsinline muted></video>
         <div class="reticle"></div>
       </div>
-      <div class="torchHint">Acomodá el código dentro del marco. Se detecta y completa solo.</div>
+      <div class="torchHint">Poné el código dentro del marco. Se completa automáticamente al detectar.</div>
       <div id="scanStatus" class="muted" style="margin-top:8px;"></div>
     </div>
   </div>
-
-  <!-- ZXing (fallback) -->
-  <script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.20.0/umd/index.min.js"></script>
 
 <script>
   // === TU URL DE APP SCRIPT ===
@@ -169,7 +183,7 @@
   const saveMsg = $('saveMsg');
   const saveErr = $('saveErr');
 
-  // Scanner
+  // Scanner elements
   const scanBtn = $('scanBtn');
   const modal = $('scannerModal');
   const video = $('video');
@@ -180,34 +194,44 @@
 
   let currentNumero = null;
 
+  // ========= UTIL =========
   function withParams(base, params){
     const u = new URL(base);
-    Object.entries(params).forEach(([k,v]) => u.searchParams.set(k, v));
+    Object.entries(params).forEach(([k,v]) => (v!==undefined && v!==null) && u.searchParams.set(k, v));
     return u.toString();
   }
   const normStr = (v)=> (v==null ? '' : String(v)).trim();
-  function setStatusLoading(msg='Buscando…'){ status.innerHTML = '<span class="spinner"></span>'+msg; }
+  function setStatusLoading(msg='Buscando…'){
+    status.innerHTML = '<span class="spinner" aria-hidden="true"></span>' + msg;
+  }
   function clearStatus(){ status.textContent = ''; }
 
-  // ============ Render múltiple ============
+  // ========= TABLA MULTI =========
   function renderLista(items){
     listaTable.innerHTML = '';
     const thead = document.createElement('thead');
     thead.innerHTML = `
       <tr>
-        <th>N°</th><th>Paciente</th><th>DNI</th><th>Tel.</th><th>Estado</th><th>Retira</th>
+        <th>N°</th>
+        <th>Paciente</th>
+        <th>DNI</th>
+        <th>Tel.</th>
+        <th>Estado</th>
+        <th>Retira</th>
       </tr>`;
     const tbody = document.createElement('tbody');
 
     items.forEach(it=>{
-      const tr = document.createElement('tr'); tr.tabIndex = 0;
+      const tr = document.createElement('tr');
+      tr.tabIndex = 0; // Navegable con teclado
       tr.innerHTML = `
         <td class="num">${normStr(it.numero || it.nro || it.num)}</td>
         <td>${normStr(it.nombre || it.paciente)}</td>
         <td>${normStr(it.dni)}</td>
         <td>${normStr(it.telefono || it.tel)}</td>
         <td>${normStr(it.estado) ? `<span class="badge">${it.estado}</span>`:''}</td>
-        <td>${normStr(it.retira || it.fechaRetira || it.retiro)}</td>`;
+        <td>${normStr(it.retira || it.fechaRetira || it.retiro)}</td>
+      `;
       tr.addEventListener('click', ()=> chooseItem(it));
       tr.addEventListener('keydown', (ev)=>{ if(ev.key==='Enter') chooseItem(it); });
       tbody.appendChild(tr);
@@ -217,20 +241,31 @@
     listaTable.appendChild(tbody);
     listaWrap.classList.remove('hidden');
   }
-  function hideLista(){ listaWrap.classList.add('hidden'); listaTable.innerHTML = ''; }
+  function hideLista(){
+    listaWrap.classList.add('hidden');
+    listaTable.innerHTML = '';
+  }
+
   function chooseItem(item){
     const numero = item.numero || item.nro || item.num;
     currentNumero = numero;
     paciente.textContent = normStr(item.nombre || item.paciente) || '(sin nombre)';
     status.textContent  = `Elegido N° ${numero}`;
-    hideLista(); resultado.classList.remove('hidden'); guardarBtn.disabled = false; entregadoPor.focus();
+    hideLista();
+    resultado.classList.remove('hidden');
+    guardarBtn.disabled = false;
+    entregadoPor.focus();
   }
 
-  // ============ Lookup ============
+  // ========= LOOKUP =========
   async function lookup(numero){
     setStatusLoading();
-    hideLista(); resultado.classList.add('hidden'); saveMsg.classList.add('hidden'); saveErr.classList.add('hidden');
-    guardarBtn.disabled = true; currentNumero = null;
+    hideLista();
+    resultado.classList.add('hidden');
+    saveMsg.classList.add('hidden');
+    saveErr.classList.add('hidden');
+    guardarBtn.disabled = true;
+    currentNumero = null;
 
     try{
       const url = withParams(SCRIPT_URL, { action:'lookup', numero });
@@ -240,72 +275,142 @@
 
       if (Array.isArray(data)) {
         if (data.length === 0) throw new Error('No encontrado');
-        if (data.length === 1) chooseItem(data[0]); else { status.textContent = `Se encontraron ${data.length} coincidencias`; renderLista(data); }
+        if (data.length === 1) { chooseItem(data[0]); }
+        else {
+          status.textContent = `Se encontraron ${data.length} coincidencias`;
+          renderLista(data);
+        }
         return;
       }
-      if (data.ok === false) { clearStatus(); throw new Error(data.error || 'No encontrado'); }
+
+      if (data.ok === false){
+        clearStatus();
+        throw new Error(data.error || 'No encontrado');
+      }
 
       const list = data.items || data.results;
       if (Array.isArray(list)) {
         if (list.length === 0) throw new Error('No encontrado');
-        if (list.length === 1) chooseItem(list[0]); else { status.textContent = `Se encontraron ${list.length} coincidencias`; renderLista(list); }
+        if (list.length === 1) { chooseItem(list[0]); }
+        else {
+          status.textContent = `Se encontraron ${list.length} coincidencias`;
+          renderLista(list);
+        }
       } else {
         currentNumero = numero;
         paciente.textContent = normStr(data.nombre || data.paciente) || '(sin nombre)';
         status.textContent = `Encontrado N° ${numero}`;
-        resultado.classList.remove('hidden'); guardarBtn.disabled = false; entregadoPor.focus();
+        resultado.classList.remove('hidden');
+        guardarBtn.disabled = false;
+        entregadoPor.focus();
       }
     }catch(e){
-      clearStatus(); resultado.classList.add('hidden'); hideLista(); alert(e.message || 'Error buscando');
+      clearStatus();
+      resultado.classList.add('hidden');
+      hideLista();
+      alert(e.message || 'Error buscando');
     }
   }
 
-  // ============ Guardar ============
+  // ========= SAVE =========
   async function save(){
-    saveMsg.classList.add('hidden'); saveErr.classList.add('hidden');
-    const ep  = (entregadoPor.value||'').trim();
-    const aj  = (cancelo.value||'').trim();
-    const ak  = (fdm.value||'').trim();
-    const akOtro = (fdmOtro.value||'').trim();
+    saveMsg.classList.add('hidden');
+    saveErr.classList.add('hidden');
 
-    if (!currentNumero){ saveErr.textContent='Primero buscá y elegí un número válido.'; saveErr.classList.remove('hidden'); return; }
-    if (!ep){ saveErr.textContent='Completá "Quién entregó".'; saveErr.classList.remove('hidden'); entregadoPor.focus(); return; }
-    if (!ak){ saveErr.textContent='Elegí el medio de pago.'; saveErr.classList.remove('hidden'); fdm.focus(); return; }
-    if (ak==='OTRO' && !akOtro){ saveErr.textContent='Especificá el medio de pago en "OTRO".'; saveErr.classList.remove('hidden'); fdmOtro.focus(); return; }
+    const ep  = normStr(entregadoPor.value);
+    const aj  = normStr(cancelo.value);
+    const ak  = normStr(fdm.value);
+    const akOtro = normStr(fdmOtro.value);
 
-    guardarBtn.disabled = true; const oldTxt = guardarBtn.textContent; guardarBtn.textContent = 'Guardando…';
+    if (!currentNumero){
+      saveErr.textContent = 'Primero buscá y elegí un número válido.';
+      saveErr.classList.remove('hidden');
+      return;
+    }
+    if (!ep){
+      saveErr.textContent = 'Completá "Quién entregó".';
+      saveErr.classList.remove('hidden');
+      entregadoPor.focus();
+      return;
+    }
+    if (!ak){
+      saveErr.textContent = 'Elegí el medio de pago.';
+      saveErr.classList.remove('hidden');
+      fdm.focus();
+      return;
+    }
+    if (ak === 'OTRO' && !akOtro){
+      saveErr.textContent = 'Especificá el medio de pago en "OTRO".';
+      saveErr.classList.remove('hidden');
+      fdmOtro.focus();
+      return;
+    }
+
+    guardarBtn.disabled = true;
+    const oldTxt = guardarBtn.textContent;
+    guardarBtn.textContent = 'Guardando…';
+
     try{
-      const url = withParams(SCRIPT_URL, { action:'save', numero: currentNumero, entregadoPor: ep, cancelo: aj, fdm: ak, fdmOtro: akOtro });
+      const url = withParams(SCRIPT_URL, {
+        action:'save',
+        numero: currentNumero,
+        entregadoPor: ep,
+        cancelo: aj,
+        fdm: ak,
+        fdmOtro: akOtro
+      });
       const res = await fetch(url, { method:'GET' });
       if (!res.ok) throw new Error('Error de red');
       const data = await res.json();
-      if (data.ok === false) throw new Error(data.error || 'No se pudo guardar');
-      saveErr.classList.add('hidden'); saveMsg.classList.remove('hidden');
+
+      if (data.ok === false){
+        throw new Error(data.error || 'No se pudo guardar');
+      }
+      saveErr.classList.add('hidden');
+      saveMsg.classList.remove('hidden');
+      guardarBtn.textContent = oldTxt;
+      guardarBtn.disabled = false;
     }catch(e){
-      saveErr.textContent = e.message || 'Error guardando'; saveErr.classList.remove('hidden');
-    }finally{
-      guardarBtn.textContent = oldTxt; guardarBtn.disabled = false;
+      saveErr.textContent = e.message || 'Error guardando';
+      saveErr.classList.remove('hidden');
+      guardarBtn.textContent = oldTxt;
+      guardarBtn.disabled = false;
     }
   }
 
+  // ---- Eventos base ----
   numeroInput.addEventListener('keydown', (ev)=>{
     if (ev.key === 'Enter'){
-      const val = (numeroInput.value||'').trim();
+      const val = normStr(numeroInput.value);
       if (val) lookup(val);
     }
   });
   $('guardarBtn').addEventListener('click', save);
 
-  // ============ Scanner con fallback ============
-  let stream = null, videoTrack = null, torchOn = false;
-  let usingZXing = false, zxingReader = null, zxingActive = false;
-  let detector = null, detectorReady = false;
+  // ========= SCANNER: BarcodeDetector simple =========
+  let stream = null;
+  let detector = null;
+  let scanning = false;
+  let videoTrack = null;
+  let torchOn = false;
 
   async function startScanner(){
-    modal.classList.add('show');
-    torchBtn.disabled = true; torchOn = false; usingZXing = false; zxingActive = false;
+    // Soporte
+    const supported = ('BarcodeDetector' in window);
+    supportWarn.classList.toggle('hidden', supported);
+    if (supported){
+      try {
+        detector = new window.BarcodeDetector({
+          formats: ['ean-13','ean-8','code-128','code-39','upc-a','upc-e','itf','codabar','qr_code']
+        });
+      } catch(e) {
+        detector = null;
+      }
+    } else {
+      detector = null;
+    }
 
-    // Abrir cámara
+    // Abrir cámara trasera
     try{
       stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } },
@@ -315,81 +420,55 @@
       await video.play();
       videoTrack = stream.getVideoTracks()[0];
 
-      // Torch support
+      // Torch si soporta
       const caps = videoTrack.getCapabilities ? videoTrack.getCapabilities() : {};
       torchBtn.disabled = !(caps && 'torch' in caps);
+      torchOn = false;
 
-      // Intento con BarcodeDetector
-      detectorReady = false;
-      if ('BarcodeDetector' in window) {
-        try{
-          detector = new window.BarcodeDetector({
-            formats: ['ean-13','ean-8','code-128','code-39','upc-a','upc-e','itf','codabar','qr_code']
-          });
-          detectorReady = true;
-        }catch(_){}
-      } else {
-        supportWarn.classList.remove('hidden');
-      }
-
-      scanStatus.textContent = detectorReady ? 'Apuntá al código…' : 'Iniciando lector alternativo…';
-
-      // Si no hay detector, o si no detecta nada en 1500ms, arrancamos ZXing
-      if (!detectorReady) {
-        startZXing();
-      } else {
-        const timer = setTimeout(()=>{ if (!usingZXing) startZXing(); }, 1500);
-        scanLoop(timer);
-      }
+      scanning = true;
+      scanStatus.textContent = detector ? 'Apuntá al código…' : 'Tu navegador no soporta lectura nativa. Ingresá el número manualmente.';
+      requestAnimationFrame(scanLoop);
     }catch(err){
       scanStatus.textContent = 'No se pudo abrir la cámara. Revisá permisos.';
     }
   }
 
-  function stopScanner(){
-    if (zxingActive && zxingReader){ zxingReader.reset(); zxingActive = false; }
-    if (videoTrack){ videoTrack.stop(); videoTrack = null; }
-    if (stream){ stream.getTracks().forEach(t=>t.stop()); stream = null; }
-    detector = null; detectorReady = false; usingZXing = false; torchOn = false; torchBtn.disabled = true;
-    video.srcObject = null; scanStatus.textContent = '';
-  }
-
-  async function scanLoop(timer){
+  async function scanLoop(){
+    if (!scanning) return;
     try{
-      if (!detectorReady || usingZXing) return;
-      const codes = await detector.detect(video);
-      if (codes && codes.length){
-        clearTimeout(timer);
-        const value = String(codes[0].rawValue || '').trim();
-        if (value) return onCodeDetected(value);
-      }
-    }catch(_){}
-    requestAnimationFrame(()=>scanLoop(timer));
-  }
-
-  function startZXing(){
-    usingZXing = true;
-    supportWarn.classList.add('hidden'); // ya estamos manejando fallback
-    try{
-      zxingReader = new ZXing.BrowserMultiFormatReader();
-      zxingReader.decodeFromVideoDevice(null, video, (result, err) => {
-        zxingActive = true;
-        if (result && result.text){
-          onCodeDetected(String(result.text).trim());
+      if (detector){
+        const barcodes = await detector.detect(video);
+        if (barcodes && barcodes.length){
+          const value = String(barcodes[0].rawValue || '').trim();
+          if (value){
+            onCodeDetected(value);
+            return;
+          }
         }
-      });
-      scanStatus.textContent = 'Lector alternativo activo…';
-    }catch(e){
-      scanStatus.textContent = 'No se pudo iniciar el lector alternativo.';
-    }
+      }
+    }catch(e){}
+    requestAnimationFrame(scanLoop);
   }
 
   function onCodeDetected(value){
-    modal.classList.remove('show');
+    scanning = false;
+    stopScanner();
     const soloDigitos = value.replace(/[^\d]/g,'');
     numeroInput.value = soloDigitos || value;
-    stopScanner();
-    if (numeroInput.value.trim()) lookup(numeroInput.value.trim());
+    if (numeroInput.value.trim()){
+      lookup(numeroInput.value.trim());
+    }
+  }
+
+  function stopScanner(){
+    if (videoTrack){ videoTrack.stop(); videoTrack = null; }
+    if (stream){ stream.getTracks().forEach(t=>t.stop()); stream = null; }
+    scanning = false;
+    detector = null;
+    torchOn = false;
+    torchBtn.disabled = true;
+    video.srcObject = null;
+    scanStatus.textContent = '';
   }
 
   async function toggleTorch(){
@@ -398,15 +477,31 @@
       await videoTrack.applyConstraints({ advanced: [{ torch: !torchOn }] });
       torchOn = !torchOn;
       torchBtn.textContent = torchOn ? 'Linterna (ON)' : 'Linterna';
-    }catch(_){}
+    }catch(e){}
   }
 
-  // Eventos modal
-  scanBtn.addEventListener('click', startScanner);
-  closeScan.addEventListener('click', ()=>{ modal.classList.remove('show'); stopScanner(); });
+  // Abrir / cerrar modal
+  scanBtn.addEventListener('click', async ()=>{
+    modal.classList.add('show');
+    await startScanner();
+  });
+  closeScan.addEventListener('click', ()=>{
+    modal.classList.remove('show');
+    stopScanner();
+  });
   torchBtn.addEventListener('click', toggleTorch);
-  modal.addEventListener('click', (e)=>{ if (e.target === modal){ modal.classList.remove('show'); stopScanner(); }});
-  window.addEventListener('keydown', (e)=>{ if (e.key === 'Escape' && modal.classList.contains('show')){ modal.classList.remove('show'); stopScanner(); }});
+  modal.addEventListener('click', (e)=>{
+    if (e.target === modal){
+      modal.classList.remove('show');
+      stopScanner();
+    }
+  });
+  window.addEventListener('keydown', (e)=>{
+    if (e.key === 'Escape' && modal.classList.contains('show')){
+      modal.classList.remove('show');
+      stopScanner();
+    }
+  });
 </script>
 </body>
 </html>
